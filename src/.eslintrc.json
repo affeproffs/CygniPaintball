@@ -1,0 +1,17 @@
+{
+  "env": {
+    "browser": true,
+    "node": false
+  },
+  "rules": {
+    "node/no-restricted-import": [
+      "error",
+      [
+        {
+          "name": "*",
+          "message": "Do not import from external dependencies, since that will not work in browsers."
+        }
+      ]
+    ]
+  }
+}

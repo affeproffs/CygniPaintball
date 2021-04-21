@@ -1,0 +1,39 @@
+{
+  "name": "paintbot-client-js",
+  "version": "1.0.0",
+  "description": "Cygni Paintbot client in modern JavaScript (ES2020)",
+  "author": "Johan Horvius <horv@cygni.se>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cygni/paintbot-client-js.git"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "type": "module",
+  "main": "index.js",
+  "browser": "src/index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write **/*.{js,json,md}",
+    "test": "mocha",
+    "start": "node --unhandled-rejections=strict paintbot-cli.js"
+  },
+  "dependencies": {
+    "commander": "^7.2.0",
+    "ws": "^7.4.4"
+  },
+  "devDependencies": {
+    "@types/mocha": "^8.2.2",
+    "@types/node": "^14.14.37",
+    "@types/ws": "^7.4.1",
+    "eslint": "~7.23.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.3.1",
+    "mocha": "^8.3.2",
+    "prettier": "~2.2.1"
+  }
+}
