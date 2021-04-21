@@ -1,6 +1,6 @@
-import { Action, MessageType, MapUtility } from '../src/index.js';
+import { Action, MessageType, MapUtility, Coordinate } from '../src/index.js';
 
-export const BOT_NAME = 'Turner';
+export const BOT_NAME = 'Im a QT';
 
 const directionActions = [Action.Up, Action.Right, Action.Down, Action.Left];
 
@@ -41,31 +41,49 @@ function turnAround() {
 export function getNextAction(mapUpdateEvent) {
   const mapUtils = new MapUtility(mapUpdateEvent.map, mapUpdateEvent.receivingPlayerId);
   const myCharacter = mapUtils.getMyCharacterInfo();
+  
+  let minDist = Infinity;
+  let goal = mapUtils.convertPositionToCoordinate(myCharacter.position);
+  const myCord = mapUtils.getMyCoordinate();
+
+  mapUtils.getCoordinatesContainingPowerUps().forEach((cord) => {
+    if (myCord.manhattanDistanceTo(cord) < minDist) {
+      goal = cord   
+      minDist = myCord.manhattanDistanceTo(cord);
+    }    
+  })  
+
+  if (goal != myCord) {
+    if (myCord.translateByAction(directionActions[currentDirection]).manhattanDistanceTo(goal) < minDist && canMoveForward(mapUtils)) {
+      // You'll do NUFFIN
+    } else if (myCord.translateByAction(directionActions[(currentDirection + 1) % 4]).manhattanDistanceTo(goal) < minDist && canMoveRight(mapUtils)) {
+      turnRight();
+    } else if (myCord.translateByAction(directionActions[(currentDirection + 3) % 4]).manhattanDistanceTo(goal) < minDist && canMoveLeft(mapUtils)) {
+      turnLeft();
+    } else {
+      turnAround();
+    }
+  }
+
+  console.log(goal, minDist);
 
   if (myCharacter.carryingPowerUp) {
     return Action.Explode;
   }
 
-  if (!canMoveForward(mapUtils)) {
-    if (canMoveLeft(mapUtils)) {
-      turnLeft();
-    } else if (canMoveRight(mapUtils)) {
-      turnRight();
-    } else if (canMoveBack(mapUtils)) {
-      turnAround();
-    } else {
-      return Action.Stay;
-    }
-  }
   return directionActions[currentDirection];
 }
 
 // This handler is optional
-export function onMessage(message) {
+export function onMessage(message) {  
   switch (message.type) {
     case MessageType.GameStarting:
       // Reset bot state here
       currentDirection = 0;
+      break;
+    case MessageType.GameResult:      
+      console.log("yooo game over lmao");
+      console.log(message)
       break;
   }
 }
