@@ -73,7 +73,7 @@ const getPowerDir = (myCord, powerCoords) => {
 }
 
 // Returns what type of tile is at cord
-// Any of: 1(obstacle, player, oob), 2(powerup), 3(unpainted), 4(our color), 5(other color)
+// Translation: 1(obstacle, player, oob), 2(powerup), 3(unpainted), 4(our color), 5(other color)
 const getTileType = (cord, mapUtils) => {
   if (mapUtils.isCoordinateOutOfBounds(cord)) return 1;
   const cordPos = mapUtils.convertCoordinateToPosition(cord);
@@ -99,6 +99,7 @@ const getTileType = (cord, mapUtils) => {
   return type;
 }
 
+// Returns # of players withing 5x5 radius of player
 const getPlayersInProximity = (myCord, mapUtils) => {
   let closePlayers = -1; // -1 due to counting ourselves once
 
@@ -150,7 +151,7 @@ const getState = (mapUtils, myChar) => {
 
   const closePlayers = getPlayersInProximity(myCord, mapUtils);
   values.push(closePlayers);
-  //console.log("Tiles:\n ", northCordType, "\n", westCordType, eastCordType, "\n ", southCordType);      
+    
   const state = encodeValues(values);
   console.log("State: ", state);
   return state;
@@ -201,7 +202,8 @@ const getState = (mapUtils, myChar) => {
 export function getNextAction(mapUpdateEvent) {  
   const mapUtils = new MapUtility(mapUpdateEvent.map, mapUpdateEvent.receivingPlayerId);  
   const myCharacter = mapUtils.getMyCharacterInfo();  
-  mapUtils.convertPositionsToCoordinates
+
+  getState(mapUtils, myCharacter);
   
   let minDist = Infinity;
   let goal = mapUtils.convertPositionToCoordinate(myCharacter.position);
@@ -224,9 +226,7 @@ export function getNextAction(mapUpdateEvent) {
     } else {
       turnAround();
     }
-  }
-
-  getState(mapUtils, myCharacter);
+  }  
 
   if (myCharacter.carryingPowerUp) {
     return Action.Explode;
