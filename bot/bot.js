@@ -99,26 +99,60 @@ const getTileType = (cord, mapUtils) => {
   return type;
 }
 
-const getState = (mapUtils, myChar) => {
-  let state = 0;
+const getPlayersInProximity = (myCord, mapUtils) => {
+  let closePlayers = -1; // -1 due to counting ourselves once
+
+  for (const char of mapUtils.characterInfoMap.values()) {
+    const charCord = mapUtils.convertPositionToCoordinate(char['position']);
+    if (myCord.manhattanDistanceTo(charCord) <= 5) {
+      closePlayers += 1;
+    }
+  }
+
+  return closePlayers;
+}
+
+// Encodes values into a state (number)
+const encodeValues = (values) => {
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i];
+    sum *= 10;
+  }
+  return sum / 10;
+}
+
+const getState = (mapUtils, myChar) => {  
+  let values = [];
 
   const myCord = mapUtils.getMyCoordinate();
   const closestPowerDir = getPowerDir(myCord, mapUtils.getCoordinatesContainingPowerUps()) 
-  state += closestPowerDir;
+  values.push(closestPowerDir);
 
   let tempCord = myCord;
   tempCord.y -= 1;  
+
   const northCordType = getTileType(tempCord, mapUtils);
+  values.push(northCordType);  
+
   tempCord.y += 2;
   const southCordType = getTileType(tempCord, mapUtils);
+  values.push(southCordType);  
+
   tempCord.y -= 1;
   tempCord.x -= 1;
   const westCordType = getTileType(tempCord, mapUtils);
+  values.push(westCordType);  
+
   tempCord.x += 2;
   const eastCordType = getTileType(tempCord, mapUtils);
-  
-  console.log("Tiles:\n ", northCordType, "\n", westCordType, eastCordType, "\n ", southCordType);
-  
+  values.push(eastCordType);    
+
+  const closePlayers = getPlayersInProximity(myCord, mapUtils);
+  values.push(closePlayers);
+  //console.log("Tiles:\n ", northCordType, "\n", westCordType, eastCordType, "\n ", southCordType);      
+  const state = encodeValues(values);
+  console.log("State: ", state);
   return state;
 }
 
@@ -165,8 +199,9 @@ const getState = (mapUtils, myChar) => {
  * @returns {Action | Promise<Action>}
  */
 export function getNextAction(mapUpdateEvent) {  
-  const mapUtils = new MapUtility(mapUpdateEvent.map, mapUpdateEvent.receivingPlayerId);
-  const myCharacter = mapUtils.getMyCharacterInfo();
+  const mapUtils = new MapUtility(mapUpdateEvent.map, mapUpdateEvent.receivingPlayerId);  
+  const myCharacter = mapUtils.getMyCharacterInfo();  
+  mapUtils.convertPositionsToCoordinates
   
   let minDist = Infinity;
   let goal = mapUtils.convertPositionToCoordinate(myCharacter.position);
