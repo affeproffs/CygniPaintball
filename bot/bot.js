@@ -5,51 +5,62 @@ import {
   Coordinate,
   TileType,
 } from "../src/index.js";
+import fs from "fs";
+
+// Q-learning bot
 
 export const BOT_NAME = "Im a QT";
-const directionActions = [Action.Up, Action.Right, Action.Down, Action.Left];
-// const actionArr = [Action.Up, Action.Right, Action.Down, Action.Left, Action.Explode];
-const QTable = new Map();
+const mapFileName = "ql.json";
+const actionArr = [
+  Action.Up,
+  Action.Right,
+  Action.Down,
+  Action.Left,
+  Action.Explode,
+];
+
+function mapToJson(map) {
+  return JSON.stringify(map);
+}
+function strMapToObj(strMap) {
+  let obj = Object.create(null);
+  for (let [k, v] of strMap) {
+    // We don’t escape the key '__proto__'
+    // which can cause problems on older engines
+    obj[k] = v;
+  }
+  return obj;
+}
+function objToStrMap(obj) {
+  let strMap = new Map();
+  for (let k of Object.keys(obj)) {
+    strMap.set(parseInt(k), obj[k]);
+  }
+  return strMap;
+}
+function strMapToJson(strMap) {
+  return JSON.stringify(strMapToObj(strMap));
+}
+function jsonToStrMap(jsonStr) {
+  return objToStrMap(JSON.parse(jsonStr));
+}
+/*
+const fileToMap = (fname) => {
+  return new Map(Object.entries(JSON.parse(fs.readFileSync(fname).toString())));
+};*/
+
+const datastr = fs.readFileSync(mapFileName).toString();
+let QTable = jsonToStrMap(datastr);
+
 let oldState = 0;
 let paintedTiles = 0;
 let playersStunned = 0;
 let isStunned = false;
 
-let currentDirection = 0;
-
-function canMoveForward(mapUtils) {
-  return mapUtils.canIMoveInDirection(directionActions[currentDirection]);
-}
-
-function canMoveLeft(mapUtils) {
-  return mapUtils.canIMoveInDirection(
-    directionActions[(currentDirection + 3) % 4]
-  );
-}
-
-function canMoveRight(mapUtils) {
-  return mapUtils.canIMoveInDirection(
-    directionActions[(currentDirection + 1) % 4]
-  );
-}
-
-function canMoveBack(mapUtils) {
-  return mapUtils.canIMoveInDirection(
-    directionActions[(currentDirection + 2) % 4]
-  );
-}
-
-function turnLeft() {
-  currentDirection = (currentDirection + 3) % 4;
-}
-
-function turnRight() {
-  currentDirection = (currentDirection + 1) % 4;
-}
-
-function turnAround() {
-  currentDirection = (currentDirection + 2) % 4;
-}
+// CONSTANTS
+const ALPHA = 0.6; // Learning rate
+const DISCOUNTFACTOR = 0.3; // Discount factor
+const EPSILON = 0.2; // Exploration rate
 
 // Returns direction of closest power-up
 // Any of: NW, NE, N, SE, SW, S, E, W, NO(nowhere)
@@ -236,9 +247,20 @@ const getState = (mapUtils, myChar) => {
     selectAction(state) => returns action for state
 */
 
+const getMaxQReward = (state) => {
+  let reward = 0;
+  for (let i = 0; i < actionArr.length; i++) {
+    state += 1;
+    if (QTable.has(state) && QTable.get(state) > reward) {
+      reward = QTable.get(state);
+    }
+  }
+  return reward;
+};
+
 const getReward = (prevTiles, prevPlayersStunned, prevIsStunned) => {
   let reward = 0;
-  reward += paintedTiles - prevTiles;
+  reward += paintedTiles - prevTiles - 0.1;
   if (prevPlayersStunned < playersStunned) {
     reward += (playersStunned - prevPlayersStunned) * 5;
   }
@@ -246,6 +268,26 @@ const getReward = (prevTiles, prevPlayersStunned, prevIsStunned) => {
     reward -= 20;
   }
   return reward;
+};
+
+const selectAction = (state) => {
+  if (Math.random() < EPSILON) {
+    // Exploration
+    return Math.floor(Math.random() * actionArr.length) + 1;
+  } else {
+    let action = 1,
+      bestValue = -Infinity;
+    for (let i = 1; i <= actionArr.length; i++) {
+      if (QTable.has(state + i) && QTable.get(state + i) > bestValue) {
+        action = i;
+        bestValue = QTable.get(state + i);
+      } else if (!QTable.has(state + i) && 0 > bestValue) {
+        action = i;
+        bestValue = 0;
+      }
+    }
+    return action;
+  }
 };
 
 /**
@@ -258,6 +300,7 @@ export function getNextAction(mapUpdateEvent) {
     mapUpdateEvent.receivingPlayerId
   );
   const myCharacter = mapUtils.getMyCharacterInfo();
+  const myCord = mapUtils.getMyCoordinate();
 
   const newState = getState(mapUtils, myCharacter);
 
@@ -266,10 +309,7 @@ export function getNextAction(mapUpdateEvent) {
   const prevIsStunned = isStunned;
 
   paintedTiles = myCharacter.colouredPositions.length;
-  playersStunned = getStunnedPlayersInProx(
-    mapUtils.convertPositionToCoordinate(myCharacter.position),
-    mapUtils
-  );
+  playersStunned = getStunnedPlayersInProx(myCord, mapUtils);
   isStunned = myCharacter.stunnedForGameTicks > 0;
 
   // If we're still stunned, return dummy action
@@ -289,69 +329,35 @@ export function getNextAction(mapUpdateEvent) {
   }
 
   // Q-learning update value
-  const update = QTable.get(oldState);
+  const update =
+    QTable.get(oldState) +
+    ALPHA *
+      (previousStateReward +
+        DISCOUNTFACTOR * getMaxQReward(newState) -
+        QTable.get(oldState));
 
   QTable.set(oldState, update);
 
-  // action =  Select action based on new state. 1,2,3,4,5
+  const action = selectAction(newState);
 
-  oldState = newState; // + action;
+  oldState = newState + action;
 
-  let minDist = Infinity;
-  let goal = mapUtils.convertPositionToCoordinate(myCharacter.position);
-  const myCord = mapUtils.getMyCoordinate();
-
-  mapUtils.getCoordinatesContainingPowerUps().forEach((cord) => {
-    if (myCord.manhattanDistanceTo(cord) < minDist) {
-      goal = cord;
-      minDist = myCord.manhattanDistanceTo(cord);
-    }
-  });
-
-  if (goal != myCord) {
-    if (
-      myCord
-        .translateByAction(directionActions[currentDirection])
-        .manhattanDistanceTo(goal) < minDist &&
-      canMoveForward(mapUtils)
-    ) {
-      // You'll do NUFFIN
-    } else if (
-      myCord
-        .translateByAction(directionActions[(currentDirection + 1) % 4])
-        .manhattanDistanceTo(goal) < minDist &&
-      canMoveRight(mapUtils)
-    ) {
-      turnRight();
-    } else if (
-      myCord
-        .translateByAction(directionActions[(currentDirection + 3) % 4])
-        .manhattanDistanceTo(goal) < minDist &&
-      canMoveLeft(mapUtils)
-    ) {
-      turnLeft();
-    } else {
-      turnAround();
-    }
-  }
-
-  if (myCharacter.carryingPowerUp) {
-    return Action.Explode;
-  }
-
-  return directionActions[currentDirection];
+  return actionArr[action - 1];
 }
 
 // This handler is optional
 export function onMessage(message) {
   switch (message.type) {
     case MessageType.GameStarting:
-      // Reset bot state here
-      currentDirection = 0;
+      // Game starts
       break;
     case MessageType.GameResult:
       console.log("yooo game over lmao");
       console.log(message);
+      console.log(QTable);
+      const strmap = strMapToJson(QTable);
+      fs.writeFile(mapFileName, strmap, () => {});
+      // Write to file here.
       break;
   }
 }

@@ -1,4 +1,4 @@
-import { GameMode } from './utils.js';
+import { GameMode } from "./utils.js";
 import {
   MessageType,
   createClientInfoMessage,
@@ -6,14 +6,14 @@ import {
   createRegisterMoveMessage,
   createRegisterPlayerMessage,
   createStartGameMessage,
-} from './messages.js';
+} from "./messages.js";
 
 const HEARTBEAT_INTERVAL = 5000;
 const SUPPORTED_GAME_MODES = new Set(Object.values(GameMode));
 
 export function createClient({
-  host = 'wss://server.paintbot.cygni.se',
-  venue = 'training',
+  host = "wss://server.paintbot.cygni.se",
+  venue = "training",
   bot,
   logger = console,
   autoStart = true,
@@ -23,7 +23,7 @@ export function createClient({
   gameSettings = bot?.GAME_SETTINGS,
 }) {
   if (bot == null) {
-    throw new Error('You must specify a bot to use!');
+    throw new Error("You must specify a bot to use!");
   }
 
   const { href } = new URL(venue, host);
@@ -36,10 +36,10 @@ export function createClient({
   let latestGameSettings;
   let latestGameLink;
 
-  ws.addEventListener('open', handleOpen);
-  ws.addEventListener('close', handleClose);
-  ws.addEventListener('error', handleError);
-  ws.addEventListener('message', handleMessage);
+  ws.addEventListener("open", handleOpen);
+  ws.addEventListener("close", handleClose);
+  ws.addEventListener("error", handleError);
+  ws.addEventListener("message", handleMessage);
 
   function logGameProgress(gameTick) {
     if (gameTick % 20 === 0) {
@@ -70,10 +70,18 @@ export function createClient({
 
   const messageHandlers = {
     [MessageType.HeartbeatResponse]({ receivingPlayerId }) {
-      heartbeatTimeout = setTimeout(sendMessage, HEARTBEAT_INTERVAL, createHeartbeatRequestMessage(receivingPlayerId));
+      heartbeatTimeout = setTimeout(
+        sendMessage,
+        HEARTBEAT_INTERVAL,
+        createHeartbeatRequestMessage(receivingPlayerId)
+      );
     },
 
-    [MessageType.PlayerRegistered]({ receivingPlayerId, gameMode, gameSettings }) {
+    [MessageType.PlayerRegistered]({
+      receivingPlayerId,
+      gameMode,
+      gameSettings,
+    }) {
       latestGameMode = gameMode;
       latestGameSettings = gameSettings;
       if (!SUPPORTED_GAME_MODES.has(gameMode)) {
@@ -81,8 +89,8 @@ export function createClient({
         close();
       } else {
         logger.info(`Player ${bot.BOT_NAME} was successfully registered!`);
-        logger.info('Game mode:', gameMode);
-        logger.info('Game settings:', gameSettings);
+        logger.info("Game mode:", gameMode);
+        logger.info("Game settings:", gameSettings);
         sendMessage(createHeartbeatRequestMessage(receivingPlayerId));
       }
     },
@@ -127,7 +135,9 @@ export function createClient({
     async [MessageType.MapUpdate](mapUpdateEvent) {
       const { receivingPlayerId, gameId, gameTick } = mapUpdateEvent;
       const action = await bot.getNextAction(mapUpdateEvent);
-      sendMessage(createRegisterMoveMessage(action, receivingPlayerId, gameId, gameTick));
+      sendMessage(
+        createRegisterMoveMessage(action, receivingPlayerId, gameId, gameTick)
+      );
       logGameProgress(gameTick);
     },
   };
@@ -148,10 +158,10 @@ export function createClient({
   function handleClose({ code, reason, wasClean }) {
     logger.info(`WebSocket is closed`, { code, reason, wasClean });
     clearTimeout(heartbeatTimeout);
-    ws.removeEventListener('open', handleOpen);
-    ws.removeEventListener('close', handleClose);
-    ws.removeEventListener('error', handleError);
-    ws.removeEventListener('message', handleMessage);
+    ws.removeEventListener("open", handleOpen);
+    ws.removeEventListener("close", handleClose);
+    ws.removeEventListener("error", handleError);
+    ws.removeEventListener("message", handleMessage);
   }
 
   return {
