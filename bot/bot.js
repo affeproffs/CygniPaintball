@@ -266,6 +266,7 @@ const getReward = (prevTiles, prevPlayersStunned, prevIsStunned) => {
 };
 
 const selectAction = (state) => {
+  // Set epsilon to 0 for best choice.
   if (Math.random() < EPSILON) {
     // Exploration
     return Math.floor(Math.random() * actionArr.length) + 1;
@@ -348,7 +349,11 @@ export function onMessage(message) {
       break;
     case MessageType.GameResult:
       console.log("yooo game over lmao", QTable.size);
-      //console.log(message);
+      message["playerRanks"].forEach((player) => {
+        if (player["playerName"] == BOT_NAME) {
+          fs.appendFileSync("results.txt", player["points"].toString() + "\n");
+        }
+      });
       //console.log(QTable);
       const strmap = strMapToJson(QTable);
       fs.writeFile(mapFileName, strmap, () => {});
