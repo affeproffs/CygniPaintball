@@ -10,7 +10,7 @@ import fs from "fs";
 // Q-learning bot
 
 export const BOT_NAME = "Im a QT";
-const mapFileName = "ql.json";
+const mapFileName = "ql.json"; // File containing existing QTable
 const actionArr = [
   Action.Up,
   Action.Right,
@@ -19,31 +19,26 @@ const actionArr = [
   Action.Explode,
 ];
 
-function mapToJson(map) {
-  return JSON.stringify(map);
-}
-function strMapToObj(strMap) {
+const strMapToObj = (strMap) => {
   let obj = Object.create(null);
   for (let [k, v] of strMap) {
-    // We don’t escape the key '__proto__'
-    // which can cause problems on older engines
     obj[k] = v;
   }
   return obj;
-}
-function objToStrMap(obj) {
+};
+const objToStrMap = (obj) => {
   let strMap = new Map();
   for (let k of Object.keys(obj)) {
     strMap.set(parseInt(k), obj[k]);
   }
   return strMap;
-}
-function strMapToJson(strMap) {
+};
+const strMapToJson = (strMap) => {
   return JSON.stringify(strMapToObj(strMap));
-}
-function jsonToStrMap(jsonStr) {
+};
+const jsonToStrMap = (jsonStr) => {
   return objToStrMap(JSON.parse(jsonStr));
-}
+};
 /*
 const fileToMap = (fname) => {
   return new Map(Object.entries(JSON.parse(fs.readFileSync(fname).toString())));
@@ -352,9 +347,9 @@ export function onMessage(message) {
       // Game starts
       break;
     case MessageType.GameResult:
-      console.log("yooo game over lmao");
-      console.log(message);
-      console.log(QTable);
+      console.log("yooo game over lmao", QTable.size);
+      //console.log(message);
+      //console.log(QTable);
       const strmap = strMapToJson(QTable);
       fs.writeFile(mapFileName, strmap, () => {});
       // Write to file here.
