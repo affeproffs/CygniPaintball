@@ -19,7 +19,8 @@
     "lint": "eslint .",
     "format": "prettier --write **/*.{js,json,md}",
     "test": "mocha",
-    "start": "node --unhandled-rejections=strict paintbot-cli.js"
+    "start": "node --unhandled-rejections=strict paintbot-cli.js",
+    "startBoring": "node --unhandled-rejections=strict paintbot-cli.js ./regBot/boringBot.js"
   },
   "dependencies": {
     "commander": "^7.2.0",

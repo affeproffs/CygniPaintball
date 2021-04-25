@@ -1,0 +1,14 @@
+v1 - Pathfind to closest power and immediatly activate
+     No crashing.
+
+v2 - Only activate power if:
+        5x5 area has certain amount of !ourColor
+        or atleast an enemy in area.
+
+v3+ - Pathfind to closest power and prioritize 
+        trails with other colors.
+      Check path from closest power to enemy which is closest
+      -> calculate if we reach power before them
+      -> if we are 4 steps ahead, we can "afford"
+         to take a path which is 3 steps slower.
+         

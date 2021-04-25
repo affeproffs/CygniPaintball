@@ -53,8 +53,8 @@ let playersStunned = 0;
 let isStunned = false;
 
 // CONSTANTS
-const ALPHA = 0.6; // Learning rate
-const DISCOUNTFACTOR = 0.3; // Discount factor
+const ALPHA = 0.4; // Learning rate
+const DISCOUNTFACTOR = 0.5; // Discount factor
 const EPSILON = 0.2; // Exploration rate
 
 // Returns direction of closest power-up
