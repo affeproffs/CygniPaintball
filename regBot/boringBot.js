@@ -1,8 +1,10 @@
 import { Action, MessageType, MapUtility, Coordinate } from "../src/index.js";
 import { ANode } from "./nodeclass.js";
+import { getPlayersInProximity, getTileType } from "../ownUtils/ownUtils.js";
 import fs from "fs";
 
 export const BOT_NAME = "A⭐ is born";
+const VERSION = "v2";
 
 const areCordsSame = (c1, c2) => {
   return c1.x === c2.x && c1.y === c2.y;
@@ -189,7 +191,51 @@ const aStar = (mapUtils, start, goal) => {
   return Action.Stay;
 };
 
-const closestGoalCord = (powerUpCords, myCord) => {
+// Returns paintable tiles within boom range
+const getPaintableTilesInProx = (mapUtils, myCord) => {
+  let closeCords = new Array();
+  const h = mapUtils.map["height"];
+  const w = mapUtils.map["width"];
+  for (let i = 0; i < h; i++) {
+    for (let j = 0; j < w; j++) {
+      const cord = new Coordinate(j, i);
+
+      if (myCord.manhattanDistanceTo(cord) <= 4) {
+        closeCords.push(cord);
+      }
+    }
+  }
+  let paintable = 0;
+  closeCords.forEach((cord) => {
+    const tileType = getTileType(cord, mapUtils, BOT_NAME);
+    if (tileType === 3 || tileType === 5) {
+      paintable += 1;
+    }
+  });
+  return paintable;
+};
+
+const isGoodTimeToExplode = (mapUtils, myCord, action) => {
+  const paintableTiles = getPaintableTilesInProx(mapUtils, myCord);
+  const nextTile = getTileType(
+    myCord.translateByAction(action),
+    mapUtils,
+    BOT_NAME
+  );
+  if (paintableTiles >= 30) {
+    // Enough tiles in proximity that aren't our color
+    return true;
+  } else if (getPlayersInProximity(myCord, mapUtils, 3) >= 1) {
+    // Atleast 1 player in BOOM range
+    return true;
+  } else if (nextTile == 2) {
+    // We are about to pick-up another power-up
+    return true;
+  }
+  return false;
+};
+
+const closestPowerCord = (powerUpCords, myCord) => {
   let minDist = Infinity;
   let goal = myCord;
 
@@ -215,7 +261,7 @@ export function getNextAction(mapUpdateEvent) {
   const myCharacter = mapUtils.getMyCharacterInfo();
   const myCord = mapUtils.getMyCoordinate();
 
-  const goal = closestGoalCord(
+  const goal = closestPowerCord(
     mapUtils.getCoordinatesContainingPowerUps(),
     myCord
   );
@@ -226,13 +272,14 @@ export function getNextAction(mapUpdateEvent) {
     return Action.Stay;
   }
 
+  const action = aStar(mapUtils, myCord, goal);
+
   if (myCharacter.carryingPowerUp) {
-    //if (isGoodTimeToExplode()) {
-    return Action.Explode;
-    //}
+    if (isGoodTimeToExplode(mapUtils, myCord, action)) {
+      return Action.Explode;
+    }
   }
 
-  const action = aStar(mapUtils, myCord, goal);
   return action;
 
   // If there are multiple ways to reach same cord with same dist, save them
@@ -247,10 +294,11 @@ export function onMessage(message) {
       break;
     case MessageType.GameResult:
       // Logs results.
+      /*
       message["playerRanks"].forEach((player) => {
         if (player["playerName"] == BOT_NAME) {
           fs.appendFileSync(
-            "logs/astarv1.txt",
+            "logs/astar" + VERSION + ".txt",
             player["points"].toString() +
               " " +
               message["gameId"] +
@@ -259,7 +307,7 @@ export function onMessage(message) {
               "\n"
           );
         }
-      });
+      });*/
       break;
   }
 }

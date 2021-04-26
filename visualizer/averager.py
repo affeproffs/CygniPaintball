@@ -15,7 +15,6 @@ Interesting statistics:
 results = sorted(results, key=lambda r: int(r[0]))
 scores = [int(r[0]) for r in results]
 wins = [int(r[2].strip()) for r in results]
-print(results)
 
 print("Average score:", sum(scores) / len(scores))
 print("Best score:", scores[-1])

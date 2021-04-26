@@ -5,6 +5,7 @@ import {
   Coordinate,
   TileType,
 } from "../src/index.js";
+import { getPlayersInProximity, getTileType } from "../ownUtils/ownUtils.js";
 import fs from "fs";
 
 // Q-learning bot
@@ -94,48 +95,6 @@ const getPowerDir = (myCord, powerCoords) => {
   return 9;
 };
 
-// Returns what type of tile is at cord
-// Translation: 1(obstacle, player, oob), 2(powerup), 3(unpainted), 4(our color), 5(other color)
-const getTileType = (cord, mapUtils) => {
-  if (mapUtils.isCoordinateOutOfBounds(cord)) return 1;
-  const cordPos = mapUtils.convertCoordinateToPosition(cord);
-  const tileType = mapUtils.getTileAt(cordPos).type;
-  let type = 3;
-
-  if (tileType == TileType.Obstacle || tileType == TileType.Character) {
-    type = 1;
-  } else if (tileType == TileType.PowerUp) {
-    type = 2;
-  } else {
-    for (const [_, cinfo] of mapUtils.characterInfoMap.entries()) {
-      cinfo["colouredPositions"].forEach((cpos) => {
-        if (cpos == cordPos) {
-          // Tile is colored
-          type = 5;
-          if (cinfo["name"] == BOT_NAME) {
-            type = 4;
-          }
-        }
-      });
-    }
-  }
-  return type;
-};
-
-// Returns # of players withing 5x5 radius of player
-const getPlayersInProximity = (myCord, mapUtils) => {
-  let closePlayers = -1; // -1 due to counting ourselves once
-
-  for (const char of mapUtils.characterInfoMap.values()) {
-    const charCord = mapUtils.convertPositionToCoordinate(char["position"]);
-    if (myCord.manhattanDistanceTo(charCord) <= 5) {
-      closePlayers += 1;
-    }
-  }
-
-  return closePlayers;
-};
-
 const getStunnedPlayersInProx = (myCord, mapUtils) => {
   let stunnedPlayers = 0; // -1 due to counting ourselves once
 
@@ -174,23 +133,23 @@ const getState = (mapUtils, myChar) => {
   let tempCord = myCord;
   tempCord.y -= 1;
 
-  const northCordType = getTileType(tempCord, mapUtils);
+  const northCordType = getTileType(tempCord, mapUtils, BOT_NAME);
   values.push(northCordType);
 
   tempCord.y += 2;
-  const southCordType = getTileType(tempCord, mapUtils);
+  const southCordType = getTileType(tempCord, mapUtils, BOT_NAME);
   values.push(southCordType);
 
   tempCord.y -= 1;
   tempCord.x -= 1;
-  const westCordType = getTileType(tempCord, mapUtils);
+  const westCordType = getTileType(tempCord, mapUtils, BOT_NAME);
   values.push(westCordType);
 
   tempCord.x += 2;
-  const eastCordType = getTileType(tempCord, mapUtils);
+  const eastCordType = getTileType(tempCord, mapUtils, BOT_NAME);
   values.push(eastCordType);
 
-  const closePlayers = getPlayersInProximity(myCord, mapUtils);
+  const closePlayers = getPlayersInProximity(myCord, mapUtils, 5);
   values.push(closePlayers);
 
   const stunnedPlayers = getStunnedPlayersInProx(myCord, mapUtils);

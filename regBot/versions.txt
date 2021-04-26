@@ -15,5 +15,6 @@ v3+ - Pathfind to closest power and prioritize
          towards the power-up 3(or more) steps
          in a row. If true, go for 2nd closest
          power-up instead.
+      No crashing into other players.
       
          
