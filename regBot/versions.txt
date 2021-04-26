@@ -11,4 +11,9 @@ v3+ - Pathfind to closest power and prioritize
       -> calculate if we reach power before them
       -> if we are 4 steps ahead, we can "afford"
          to take a path which is 3 steps slower.
+      -> if THEY are ahead, check if they are going
+         towards the power-up 3(or more) steps
+         in a row. If true, go for 2nd closest
+         power-up instead.
+      
          

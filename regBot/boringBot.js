@@ -1,5 +1,7 @@
 import { Action, MessageType, MapUtility, Coordinate } from "../src/index.js";
 import { ANode } from "./nodeclass.js";
+import fs from "fs";
+
 export const BOT_NAME = "A⭐ is born";
 
 const areCordsSame = (c1, c2) => {
@@ -220,10 +222,15 @@ export function getNextAction(mapUpdateEvent) {
 
   if (goal === -1) {
     // No powerup, stay
+    // Should probably set goal as center of least inhabited quadrant.
     return Action.Stay;
   }
 
-  if (myCharacter.carryingPowerUp) return Action.Explode;
+  if (myCharacter.carryingPowerUp) {
+    //if (isGoodTimeToExplode()) {
+    return Action.Explode;
+    //}
+  }
 
   const action = aStar(mapUtils, myCord, goal);
   return action;
@@ -237,6 +244,22 @@ export function onMessage(message) {
   switch (message.type) {
     case MessageType.GameStarting:
       // Reset bot state here
+      break;
+    case MessageType.GameResult:
+      // Logs results.
+      message["playerRanks"].forEach((player) => {
+        if (player["playerName"] == BOT_NAME) {
+          fs.appendFileSync(
+            "logs/astarv1.txt",
+            player["points"].toString() +
+              " " +
+              message["gameId"] +
+              " " +
+              (player["rank"] == 1 ? "1" : "0") +
+              "\n"
+          );
+        }
+      });
       break;
   }
 }
