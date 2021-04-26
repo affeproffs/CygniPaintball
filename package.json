@@ -20,7 +20,8 @@
     "format": "prettier --write **/*.{js,json,md}",
     "test": "mocha",
     "start": "node --unhandled-rejections=strict paintbot-cli.js",
-    "startBoring": "node --unhandled-rejections=strict paintbot-cli.js ./regBot/boringBot.js"
+    "startBoring": "node --unhandled-rejections=strict paintbot-cli.js ./regBot/boringBot.js",
+    "startBoringLocal": "node --unhandled-rejections=strict paintbot-cli.js ./regBot/boringBot.js --host http://localhost:8080"
   },
   "dependencies": {
     "commander": "^7.2.0",
