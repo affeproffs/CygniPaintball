@@ -1,6 +1,6 @@
 import { TileType } from "../src/index.js";
 
-// Returns # of players withing 5x5 radius of player
+// Returns # of players within proxXprox radius of player
 export const getPlayersInProximity = (myCord, mapUtils, prox) => {
   let closePlayers = -1; // -1 due to counting ourselves once
 
