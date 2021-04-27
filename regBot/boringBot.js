@@ -2,48 +2,74 @@ import { Action, MessageType, MapUtility, Coordinate } from "../src/index.js";
 import { ANode } from "./nodeclass.js";
 import { getPlayersInProximity, getTileType } from "../ownUtils/ownUtils.js";
 import fs from "fs";
-import { parentPort } from "worker_threads";
 
 export const BOT_NAME = "A⭐ is born";
-const VERSION = "v3";
+const VERSION = "v3+";
 
 const areCordsSame = (c1, c2) => {
   return c1.x === c2.x && c1.y === c2.y;
 };
 
-// Used for A* debugging.
-const printPath = (nodeDetails, goal, myCord) => {
-  console.log("Whole path from", myCord, "to:", goal, ":");
-
-  let r = goal.y;
-  let c = goal.x;
-  let pathArr = Array();
-  while (!(nodeDetails[r][c].parentR == r && nodeDetails[r][c].parentC == c)) {
-    pathArr.push({ r, c });
-    const newR = nodeDetails[r][c].parentR;
-    const newC = nodeDetails[r][c].parentC;
-    r = newR;
-    c = newC;
-  }
-  pathArr.push({ r, c });
-
-  for (let i = 0; i < pathArr.length; i++) {
-    console.log(pathArr[i]);
-  }
-};
-
 // Returns most suitable tile(Cord) from cordsArr
-// Priority: Other color, unpainted, ourcolor
+// Priority: Other color > unpainted > ourcolor
+// if another player is in any direction -> BAD
 const getBestTile = (mapUtils, cordsArr) => {
-  /*
-    Iterate thru each cord.
-    Check if another player is in any direction -> BAD
-  */
+  const order = { 0: 0, 3: 2, 4: 1, 5: 3 }; // Other color > unpainted > ourcolor
   let bestCord = null,
-    bestCordType = -1;
+    bestCordType = 0;
   cordsArr.forEach((cord) => {
-    // Continue here.
+    let cordType = getTileType(cord, mapUtils, BOT_NAME);
+
+    const upPos = mapUtils.isCoordinateOutOfBounds(
+      cord.translateByAction(Action.Up)
+    )
+      ? null
+      : mapUtils.convertCoordinateToPosition(cord.translateByAction(Action.Up));
+
+    const downPos = mapUtils.isCoordinateOutOfBounds(
+      cord.translateByAction(Action.Down)
+    )
+      ? null
+      : mapUtils.convertCoordinateToPosition(
+          cord.translateByAction(Action.Down)
+        );
+
+    const leftPos = mapUtils.isCoordinateOutOfBounds(
+      cord.translateByAction(Action.Left)
+    )
+      ? null
+      : mapUtils.convertCoordinateToPosition(
+          cord.translateByAction(Action.Left)
+        );
+
+    const rightPos = mapUtils.isCoordinateOutOfBounds(
+      cord.translateByAction(Action.Right)
+    )
+      ? null
+      : mapUtils.convertCoordinateToPosition(
+          cord.translateByAction(Action.Right)
+        );
+
+    const directionCords = [upPos, downPos, leftPos, rightPos];
+
+    for (let player of mapUtils.characterInfoMap.values()) {
+      if (player["name"] !== BOT_NAME) {
+        // Potential player to crash with
+        if (
+          directionCords.find((tmpPos) => tmpPos === player["position"]) &&
+          player["stunnedForGameTicks"] === 0
+        ) {
+          cordType = 0;
+        }
+      }
+    }
+
+    if (order[cordType] > bestCordType) {
+      bestCord = cord;
+      bestCordType = cordType;
+    }
   });
+
   return bestCord;
 };
 
@@ -52,13 +78,17 @@ const selectAction = (mapUtils, nodeDetails, goal, myCord) => {
   let r = goal.y;
   let c = goal.x;
   let pathArr = Array();
-  console.log("Me:", myCord, "Goal:", goal);
+  /* console.log("Goal parentR", nodeDetails[r][c].parentR);
+  console.log("Goal parentC", nodeDetails[r][c].parentC); */
+
   while (
     !(nodeDetails[r][c].parentR[0] == r && nodeDetails[r][c].parentC[0] == c)
   ) {
     pathArr.push({ r, c });
     const newR = nodeDetails[r][c].parentR[0];
     const newC = nodeDetails[r][c].parentC[0];
+    /* console.log("Goal parentR", nodeDetails[r][c].parentR);
+    console.log("Goal parentC", nodeDetails[r][c].parentC); */
     r = newR;
     c = newC;
   }
@@ -76,7 +106,10 @@ const selectAction = (mapUtils, nodeDetails, goal, myCord) => {
     for (let i = 0; i < yArr.length; i++) {
       cordsArr.push(new Coordinate(xArr[i], yArr[i]));
     }
+    /* console.log("My cord:", myCord);
+    console.log("Cords array:", cordsArr); */
     const bestCord = getBestTile(mapUtils, cordsArr) ?? myCord;
+    //console.log("Chosen cord:", bestCord, "\n");
     newGoal = { r: bestCord.y, c: bestCord.x };
   }
 
@@ -95,10 +128,15 @@ const selectAction = (mapUtils, nodeDetails, goal, myCord) => {
 
 let nodeDetails = Array(); // A*
 let openList = Array(); // A*
-let finalF = Infinity;
+let finalF = Infinity; // A*
 
-// Used for each direction (up, left, down, right)
+// Used for each direction (up, left, down, right) in A*
 const aStarUtil = (mapUtils, co, goal, r, c) => {
+  /*
+    TODO:
+      Add a tracker of paintable tiles so far.
+      Use this priority to pick correct action
+   */
   if (mapUtils.isTileAvailableForMovementTo(co)) {
     const gNew = nodeDetails[r][c].g + 1;
     const hNew = co.manhattanDistanceTo(goal);
@@ -107,10 +145,8 @@ const aStarUtil = (mapUtils, co, goal, r, c) => {
     if (areCordsSame(co, goal)) {
       // Reached goal.
       if (fNew < finalF) {
-        nodeDetails[co.y][co.x].parentR = new Array();
-        nodeDetails[co.y][co.x].parentR.push(r);
-        nodeDetails[co.y][co.x].parentC = new Array();
-        nodeDetails[co.y][co.x].parentC.push(c);
+        nodeDetails[co.y][co.x].parentR = [r];
+        nodeDetails[co.y][co.x].parentC = [c];
       } else {
         nodeDetails[co.y][co.x].parentR.push(r);
         nodeDetails[co.y][co.x].parentC.push(c);
@@ -124,9 +160,12 @@ const aStarUtil = (mapUtils, co, goal, r, c) => {
         nodeDetails[co.y][co.x].f = fNew;
         nodeDetails[co.y][co.x].g = gNew;
         nodeDetails[co.y][co.x].h = hNew;
-        nodeDetails[co.y][co.x].parentR.push(r);
-        nodeDetails[co.y][co.x].parentC.push(c);
+        nodeDetails[co.y][co.x].parentR = [r];
+        nodeDetails[co.y][co.x].parentC = [c];
       } else if (nodeDetails[co.y][co.x].f == fNew) {
+        // go .. <= .. + allowance to allow for some longer paths
+        //  for more painted tiles
+
         // Additional paths of same cost
         nodeDetails[co.y][co.x].parentR.push(r);
         nodeDetails[co.y][co.x].parentC.push(c);
@@ -137,7 +176,7 @@ const aStarUtil = (mapUtils, co, goal, r, c) => {
 };
 
 /* Modified A* algorithm, uses manhattan dist as heuristic.
-   Finds path from starnt(Cord) to goal(Cord)*/
+   Finds path from start(Cord) to goal(Cord)*/
 const aStar = (mapUtils, start, goal) => {
   const h = mapUtils.map["height"];
   const w = mapUtils.map["width"];
@@ -187,7 +226,7 @@ const aStar = (mapUtils, start, goal) => {
   return selectAction(mapUtils, nodeDetails, goal, start);
 };
 
-// Returns paintable tiles within boom range
+// Returns # of paintable tiles within boom range
 const getPaintableTilesInProx = (mapUtils, myCord) => {
   let closeCords = new Array();
   const h = mapUtils.map["height"];
@@ -219,6 +258,7 @@ const isGoodTimeToExplode = (mapUtils, myCord, action) => {
     BOT_NAME
   );
   const ticksLeft = 240 - mapUtils.map["worldTick"];
+
   if (paintableTiles >= 30) {
     // Enough tiles in proximity that aren't our color
     return true;
@@ -228,7 +268,7 @@ const isGoodTimeToExplode = (mapUtils, myCord, action) => {
   } else if (nextTile == 2) {
     // We are about to pick-up another power-up
     return true;
-  } else if (ticksLeft <= 3) {
+  } else if (ticksLeft <= 2) {
     // End of game
     return true;
   }
@@ -281,9 +321,6 @@ export function getNextAction(mapUpdateEvent) {
   }
 
   return action;
-
-  // If there are multiple ways to reach same cord with same dist, save them
-  // in order to iterate thru them and choose the least "risky" one.
 }
 
 // This handler is optional
@@ -294,8 +331,7 @@ export function onMessage(message) {
       break;
     case MessageType.GameResult:
       // Logs results.
-      /*
-      message["playerRanks"].forEach((player) => {
+      /* message["playerRanks"].forEach((player) => {
         if (player["playerName"] == BOT_NAME) {
           fs.appendFileSync(
             "logs/astar" + VERSION + ".txt",
@@ -307,7 +343,7 @@ export function onMessage(message) {
               "\n"
           );
         }
-      });*/
+      }); */
       break;
   }
 }

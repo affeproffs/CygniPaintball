@@ -15,6 +15,12 @@ v3+ - Pathfind to closest power and prioritize
          towards the power-up 3(or more) steps
          in a row. If true, go for 2nd closest
          power-up instead.
-      No crashing into other players.
+      - No crashing into other players. Happens when 1 tile away from power
       
+      - In A* - Keep track of # of colorable tiles in path, keep the best one (or keep top 3).
+      - When no power-up, set goal as somewhere in the least inhabited quadrant
+      - Send allowance to Astar (how many steps we can afford to be slower)
+       - This is also useful for when there is no power-up, 
+            -> we can set Astar(leastInhabitedQuadrant, allowance=3)
+                       or Astar(cordinate 5 mu closer to leastInhabitedQuadrant, allowance=2)
          
