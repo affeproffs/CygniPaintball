@@ -2,9 +2,10 @@ import { Action, MessageType, MapUtility, Coordinate } from "../src/index.js";
 import { ANode } from "./nodeclass.js";
 import { getPlayersInProximity, getTileType } from "../ownUtils/ownUtils.js";
 import fs from "fs";
+import { parentPort } from "worker_threads";
 
 export const BOT_NAME = "A⭐ is born";
-const VERSION = "v2";
+const VERSION = "v3";
 
 const areCordsSame = (c1, c2) => {
   return c1.x === c2.x && c1.y === c2.y;
@@ -31,37 +32,116 @@ const printPath = (nodeDetails, goal, myCord) => {
   }
 };
 
-const selectAction = (nodeDetails, goal, myCord) => {
+// Returns most suitable tile(Cord) from cordsArr
+// Priority: Other color, unpainted, ourcolor
+const getBestTile = (mapUtils, cordsArr) => {
+  /*
+    Iterate thru each cord.
+    Check if another player is in any direction -> BAD
+  */
+  let bestCord = null,
+    bestCordType = -1;
+  cordsArr.forEach((cord) => {
+    // Continue here.
+  });
+  return bestCord;
+};
+
+// Iterates through A* path and returns best action for myCord to goal.
+const selectAction = (mapUtils, nodeDetails, goal, myCord) => {
   let r = goal.y;
   let c = goal.x;
   let pathArr = Array();
-  while (!(nodeDetails[r][c].parentR == r && nodeDetails[r][c].parentC == c)) {
+  console.log("Me:", myCord, "Goal:", goal);
+  while (
+    !(nodeDetails[r][c].parentR[0] == r && nodeDetails[r][c].parentC[0] == c)
+  ) {
     pathArr.push({ r, c });
-    const newR = nodeDetails[r][c].parentR;
-    const newC = nodeDetails[r][c].parentC;
+    const newR = nodeDetails[r][c].parentR[0];
+    const newC = nodeDetails[r][c].parentC[0];
     r = newR;
     c = newC;
   }
 
-  const newGoal = pathArr[pathArr.length - 1];
+  let newGoal = null;
+  if (pathArr.length == 1) {
+    // One step away from goal.
+    newGoal = pathArr[pathArr.length - 1];
+  } else {
+    // More than 1 step away
+    newGoal = pathArr[pathArr.length - 2];
+    const yArr = nodeDetails[newGoal.r][newGoal.c].parentR;
+    const xArr = nodeDetails[newGoal.r][newGoal.c].parentC;
+    let cordsArr = new Array();
+    for (let i = 0; i < yArr.length; i++) {
+      cordsArr.push(new Coordinate(xArr[i], yArr[i]));
+    }
+    const bestCord = getBestTile(mapUtils, cordsArr) ?? myCord;
+    newGoal = { r: bestCord.y, c: bestCord.x };
+  }
+
   if (newGoal.r < myCord.y) {
     return Action.Up;
   } else if (newGoal.r > myCord.y) {
     return Action.Down;
   } else if (newGoal.c < myCord.x) {
     return Action.Left;
-  } else {
+  } else if (newGoal.c > myCord.x) {
     return Action.Right;
+  } else {
+    return Action.Stay;
   }
 };
 
-/* A* algorithm, uses manhattan dist as heuristic.
-   Finds path from start(Cord) to goal(Cord)*/
+let nodeDetails = Array(); // A*
+let openList = Array(); // A*
+let finalF = Infinity;
+
+// Used for each direction (up, left, down, right)
+const aStarUtil = (mapUtils, co, goal, r, c) => {
+  if (mapUtils.isTileAvailableForMovementTo(co)) {
+    const gNew = nodeDetails[r][c].g + 1;
+    const hNew = co.manhattanDistanceTo(goal);
+    const fNew = gNew + hNew;
+    if (fNew > finalF) return;
+    if (areCordsSame(co, goal)) {
+      // Reached goal.
+      if (fNew < finalF) {
+        nodeDetails[co.y][co.x].parentR = new Array();
+        nodeDetails[co.y][co.x].parentR.push(r);
+        nodeDetails[co.y][co.x].parentC = new Array();
+        nodeDetails[co.y][co.x].parentC.push(c);
+      } else {
+        nodeDetails[co.y][co.x].parentR.push(r);
+        nodeDetails[co.y][co.x].parentC.push(c);
+      }
+      finalF = fNew;
+      return true;
+    } else {
+      if (nodeDetails[co.y][co.x].f > fNew) {
+        // If new OR cheaper path
+        openList.push({ f: fNew, r: co.y, c: co.x });
+        nodeDetails[co.y][co.x].f = fNew;
+        nodeDetails[co.y][co.x].g = gNew;
+        nodeDetails[co.y][co.x].h = hNew;
+        nodeDetails[co.y][co.x].parentR.push(r);
+        nodeDetails[co.y][co.x].parentC.push(c);
+      } else if (nodeDetails[co.y][co.x].f == fNew) {
+        // Additional paths of same cost
+        nodeDetails[co.y][co.x].parentR.push(r);
+        nodeDetails[co.y][co.x].parentC.push(c);
+      }
+    }
+  }
+  return false;
+};
+
+/* Modified A* algorithm, uses manhattan dist as heuristic.
+   Finds path from starnt(Cord) to goal(Cord)*/
 const aStar = (mapUtils, start, goal) => {
   const h = mapUtils.map["height"];
   const w = mapUtils.map["width"];
-  let closedList = Array.from(Array(h), () => new Array(w).fill(false));
-  let nodeDetails = new Array(h);
+  nodeDetails = new Array(h);
   for (let i = 0; i < nodeDetails.length; i++) {
     nodeDetails[i] = new Array(w);
     for (let j = 0; j < nodeDetails[i].length; j++) {
@@ -74,13 +154,14 @@ const aStar = (mapUtils, start, goal) => {
   nodeDetails[r][c].f = 0.0;
   nodeDetails[r][c].g = 0.0;
   nodeDetails[r][c].h = 0.0;
-  nodeDetails[r][c].parentR = r;
-  nodeDetails[r][c].parentC = c;
+  nodeDetails[r][c].parentR.push(r);
+  nodeDetails[r][c].parentC.push(c);
 
-  let openList = Array();
+  openList = new Array();
   openList.push({ f: 0, r, c });
 
-  closedList[0][0] = true;
+  finalF = Infinity;
+
   while (openList.length > 0) {
     const node = openList.shift();
 
@@ -89,106 +170,21 @@ const aStar = (mapUtils, start, goal) => {
 
     // Up
     let cord = new Coordinate(c, r - 1);
-    if (mapUtils.isTileAvailableForMovementTo(cord)) {
-      if (areCordsSame(cord, goal)) {
-        // Reached goal.
-        nodeDetails[r - 1][c].parentR = r;
-        nodeDetails[r - 1][c].parentC = c;
-        return selectAction(nodeDetails, goal, start);
-      } else if (closedList[r - 1][c] == false) {
-        const gNew = nodeDetails[r][c].g + 1;
-        const hNew = cord.manhattanDistanceTo(goal);
-        const fNew = gNew + hNew;
-
-        if (nodeDetails[r - 1][c].f > fNew) {
-          // If new OR cheaper path
-          openList.push({ f: fNew, r: r - 1, c });
-          nodeDetails[r - 1][c].f = fNew;
-          nodeDetails[r - 1][c].g = gNew;
-          nodeDetails[r - 1][c].h = hNew;
-          nodeDetails[r - 1][c].parentR = r;
-          nodeDetails[r - 1][c].parentC = c;
-        }
-      }
-    }
+    aStarUtil(mapUtils, cord, goal, r, c);
 
     // Down
     cord = new Coordinate(c, r + 1);
-    if (mapUtils.isTileAvailableForMovementTo(cord)) {
-      if (areCordsSame(cord, goal)) {
-        // Reached goal.
-        nodeDetails[r + 1][c].parentR = r;
-        nodeDetails[r + 1][c].parentC = c;
-        return selectAction(nodeDetails, goal, start);
-      } else if (!closedList[r + 1][c]) {
-        const gNew = nodeDetails[r][c].g + 1;
-        const hNew = cord.manhattanDistanceTo(goal);
-        const fNew = gNew + hNew;
-
-        if (nodeDetails[r + 1][c].f > fNew) {
-          // If new OR cheaper path
-          openList.push({ f: fNew, r: r + 1, c });
-          nodeDetails[r + 1][c].f = fNew;
-          nodeDetails[r + 1][c].g = gNew;
-          nodeDetails[r + 1][c].h = hNew;
-          nodeDetails[r + 1][c].parentR = r;
-          nodeDetails[r + 1][c].parentC = c;
-        }
-      }
-    }
+    aStarUtil(mapUtils, cord, goal, r, c);
 
     // Right
     cord = new Coordinate(c + 1, r);
-    if (mapUtils.isTileAvailableForMovementTo(cord)) {
-      if (areCordsSame(cord, goal)) {
-        // Reached goal.
-        nodeDetails[r][c + 1].parentR = r;
-        nodeDetails[r][c + 1].parentC = c;
-        return selectAction(nodeDetails, goal, start);
-      } else if (!closedList[r][c + 1]) {
-        const gNew = nodeDetails[r][c].g + 1;
-        const hNew = cord.manhattanDistanceTo(goal);
-        const fNew = gNew + hNew;
-
-        if (nodeDetails[r][c + 1].f > fNew) {
-          // If new OR cheaper path
-          openList.push({ f: fNew, r, c: c + 1 });
-          nodeDetails[r][c + 1].f = fNew;
-          nodeDetails[r][c + 1].g = gNew;
-          nodeDetails[r][c + 1].h = hNew;
-          nodeDetails[r][c + 1].parentR = r;
-          nodeDetails[r][c + 1].parentC = c;
-        }
-      }
-    }
+    aStarUtil(mapUtils, cord, goal, r, c);
 
     // Left
     cord = new Coordinate(c - 1, r);
-    if (mapUtils.isTileAvailableForMovementTo(cord)) {
-      if (areCordsSame(cord, goal)) {
-        // Reached goal.
-        nodeDetails[r][c - 1].parentR = r;
-        nodeDetails[r][c - 1].parentC = c;
-        return selectAction(nodeDetails, goal, start);
-      } else if (!closedList[r][c - 1]) {
-        const gNew = nodeDetails[r][c].g + 1;
-        const hNew = cord.manhattanDistanceTo(goal);
-        const fNew = gNew + hNew;
-
-        if (nodeDetails[r][c - 1].f > fNew) {
-          // If new OR cheaper path
-          openList.push({ f: fNew, r, c: c - 1 });
-          nodeDetails[r][c - 1].f = fNew;
-          nodeDetails[r][c - 1].g = gNew;
-          nodeDetails[r][c - 1].h = hNew;
-          nodeDetails[r][c - 1].parentR = r;
-          nodeDetails[r][c - 1].parentC = c;
-        }
-      }
-    }
+    aStarUtil(mapUtils, cord, goal, r, c);
   }
-  console.log("Reached end of a* wtf..");
-  return Action.Stay;
+  return selectAction(mapUtils, nodeDetails, goal, start);
 };
 
 // Returns paintable tiles within boom range
@@ -222,6 +218,7 @@ const isGoodTimeToExplode = (mapUtils, myCord, action) => {
     mapUtils,
     BOT_NAME
   );
+  const ticksLeft = 240 - mapUtils.map["worldTick"];
   if (paintableTiles >= 30) {
     // Enough tiles in proximity that aren't our color
     return true;
@@ -230,6 +227,9 @@ const isGoodTimeToExplode = (mapUtils, myCord, action) => {
     return true;
   } else if (nextTile == 2) {
     // We are about to pick-up another power-up
+    return true;
+  } else if (ticksLeft <= 3) {
+    // End of game
     return true;
   }
   return false;
