@@ -21,7 +21,9 @@
     "test": "mocha",
     "start": "node --unhandled-rejections=strict paintbot-cli.js",
     "startBoring": "node --unhandled-rejections=strict paintbot-cli.js ./regBot/boringBot.js",
-    "startBoringLocal": "node --unhandled-rejections=strict paintbot-cli.js ./regBot/boringBot.js --host http://localhost:8080"
+    "startBoringLocal": "node --unhandled-rejections=strict paintbot-cli.js ./regBot/boringBot.js --host http://localhost:8080",
+    "startShit": "node --unhandled-rejections=strict paintbot-cli.js ./shitbot.js",
+    "startShitLocal": "node --unhandled-rejections=strict paintbot-cli.js ./shitbot.js --host http://localhost:8080"
   },
   "dependencies": {
     "commander": "^7.2.0",
