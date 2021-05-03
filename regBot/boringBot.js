@@ -5,16 +5,17 @@ import fs from "fs";
 
 export const BOT_NAME = "A⭐ is born";
 const VERSION = "v3+";
+let hasStayed = false;
 
 const areCordsSame = (c1, c2) => {
   return c1.x === c2.x && c1.y === c2.y;
 };
 
 // Returns most suitable tile(Cord) from cordsArr
-// Priority: Other color > unpainted > ourcolor
+// Priority: Powerup > other color > unpainted > ourcolor
 // if another player is in any direction -> BAD
 const getBestTile = (mapUtils, cordsArr) => {
-  const order = { 0: 0, 3: 2, 4: 1, 5: 3 }; // Other color > unpainted > ourcolor
+  const order = { 0: 0, 2: 4, 3: 2, 4: 1, 5: 3 }; // Powerup > Other color > unpainted > ourcolor
   let bestCord = null,
     bestCordType = 0;
   cordsArr.forEach((cord) => {
@@ -78,38 +79,23 @@ const selectAction = (mapUtils, nodeDetails, goal, myCord) => {
   let r = goal.y;
   let c = goal.x;
   let pathArr = Array();
-  /* console.log("Goal parentR", nodeDetails[r][c].parentR);
-  console.log("Goal parentC", nodeDetails[r][c].parentC); */
 
-  while (
-    !(nodeDetails[r][c].parentR[0] == r && nodeDetails[r][c].parentC[0] == c)
-  ) {
+  while (!(nodeDetails[r][c].parentR == r && nodeDetails[r][c].parentC == c)) {
     pathArr.push({ r, c });
-    const newR = nodeDetails[r][c].parentR[0];
-    const newC = nodeDetails[r][c].parentC[0];
-    /* console.log("Goal parentR", nodeDetails[r][c].parentR);
-    console.log("Goal parentC", nodeDetails[r][c].parentC); */
+    const newR = nodeDetails[r][c].parentR;
+    const newC = nodeDetails[r][c].parentC;
     r = newR;
     c = newC;
   }
 
   let newGoal = null;
-  if (pathArr.length == 1) {
-    // One step away from goal.
-    newGoal = pathArr[pathArr.length - 1];
-  } else {
-    // More than 1 step away
-    newGoal = pathArr[pathArr.length - 2];
-    const yArr = nodeDetails[newGoal.r][newGoal.c].parentR;
-    const xArr = nodeDetails[newGoal.r][newGoal.c].parentC;
+  newGoal = pathArr[pathArr.length - 1];
+
+  // We only stay still once in a row
+  if (!hasStayed) {
     let cordsArr = new Array();
-    for (let i = 0; i < yArr.length; i++) {
-      cordsArr.push(new Coordinate(xArr[i], yArr[i]));
-    }
-    /* console.log("My cord:", myCord);
-    console.log("Cords array:", cordsArr); */
+    cordsArr.push(new Coordinate(newGoal.c, newGoal.r));
     const bestCord = getBestTile(mapUtils, cordsArr) ?? myCord;
-    //console.log("Chosen cord:", bestCord, "\n");
     newGoal = { r: bestCord.y, c: bestCord.x };
   }
 
@@ -132,27 +118,27 @@ let finalF = Infinity; // A*
 
 // Used for each direction (up, left, down, right) in A*
 const aStarUtil = (mapUtils, co, goal, r, c) => {
-  /*
-    TODO:
-      Add a tracker of paintable tiles so far.
-      Use this priority to pick correct action
-   */
   if (mapUtils.isTileAvailableForMovementTo(co)) {
     const gNew = nodeDetails[r][c].g + 1;
     const hNew = co.manhattanDistanceTo(goal);
     const fNew = gNew + hNew;
+    const tType = getTileType(co, mapUtils, BOT_NAME);
+    const thisColorable = tType === 3 || tType === 5 ? 1 : 0;
+    const colorableNew = nodeDetails[r][c].colorable + thisColorable;
     if (fNew > finalF) return;
     if (areCordsSame(co, goal)) {
       // Reached goal.
       if (fNew < finalF) {
-        nodeDetails[co.y][co.x].parentR = [r];
-        nodeDetails[co.y][co.x].parentC = [c];
-      } else {
-        nodeDetails[co.y][co.x].parentR.push(r);
-        nodeDetails[co.y][co.x].parentC.push(c);
+        nodeDetails[co.y][co.x].parentR = r;
+        nodeDetails[co.y][co.x].parentC = c;
+        finalF = fNew;
+      } else if (fNew === finalF) {
+        if (colorableNew > nodeDetails[co.y][co.x].colorable) {
+          nodeDetails[co.y][co.x].parentR = r;
+          nodeDetails[co.y][co.x].parentC = c;
+          nodeDetails[co.y][co.x].colorable = colorableNew;
+        }
       }
-      finalF = fNew;
-      return true;
     } else {
       if (nodeDetails[co.y][co.x].f > fNew) {
         // If new OR cheaper path
@@ -160,19 +146,23 @@ const aStarUtil = (mapUtils, co, goal, r, c) => {
         nodeDetails[co.y][co.x].f = fNew;
         nodeDetails[co.y][co.x].g = gNew;
         nodeDetails[co.y][co.x].h = hNew;
-        nodeDetails[co.y][co.x].parentR = [r];
-        nodeDetails[co.y][co.x].parentC = [c];
+        nodeDetails[co.y][co.x].colorable = colorableNew;
+        nodeDetails[co.y][co.x].parentR = r;
+        nodeDetails[co.y][co.x].parentC = c;
       } else if (nodeDetails[co.y][co.x].f == fNew) {
         // go .. <= .. + allowance to allow for some longer paths
         //  for more painted tiles
 
-        // Additional paths of same cost
-        nodeDetails[co.y][co.x].parentR.push(r);
-        nodeDetails[co.y][co.x].parentC.push(c);
+        // Additional path of same cost but more colorable tiles
+        if (colorableNew > nodeDetails[co.y][co.x].colorable) {
+          nodeDetails[co.y][co.x].parentR = r;
+          nodeDetails[co.y][co.x].parentC = c;
+          nodeDetails[co.y][co.x].colorable = colorableNew;
+          // Might need to add to openList here.
+        }
       }
     }
   }
-  return false;
 };
 
 /* Modified A* algorithm, uses manhattan dist as heuristic.
@@ -193,8 +183,8 @@ const aStar = (mapUtils, start, goal) => {
   nodeDetails[r][c].f = 0.0;
   nodeDetails[r][c].g = 0.0;
   nodeDetails[r][c].h = 0.0;
-  nodeDetails[r][c].parentR.push(r);
-  nodeDetails[r][c].parentC.push(c);
+  nodeDetails[r][c].parentR = r;
+  nodeDetails[r][c].parentC = c;
 
   openList = new Array();
   openList.push({ f: 0, r, c });
@@ -318,6 +308,13 @@ export function getNextAction(mapUpdateEvent) {
     if (isGoodTimeToExplode(mapUtils, myCord, action)) {
       return Action.Explode;
     }
+  }
+
+  // Makes sure we only stay still once.
+  if (action === Action.Stay) {
+    hasStayed = true;
+  } else {
+    hasStayed = false;
   }
 
   return action;

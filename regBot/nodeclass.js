@@ -3,7 +3,8 @@ export class ANode {
     this.f = Infinity;
     this.g = Infinity;
     this.h = Infinity;
-    this.parentR = new Array();
-    this.parentC = new Array();
+    this.parentR = -1;
+    this.parentC = -1;
+    this.colorable = 0;
   }
 }
