@@ -14,8 +14,7 @@ v3+ - Pathfind to closest power and prioritize
       -> if THEY are ahead, check if they are going
          towards the power-up 3(or more) steps
          in a row. If true, go for 2nd closest
-         power-up instead.
-      - No crashing into other players. Happens when 1 tile away from power
+         power-up instead.      
       
       - In A* - Keep track of # of colorable tiles in path, keep the best one (or keep top 3).
       - When no power-up, set goal as somewhere in the least inhabited quadrant

@@ -216,6 +216,77 @@ const aStar = (mapUtils, start, goal) => {
   return selectAction(mapUtils, nodeDetails, goal, start);
 };
 
+const getTileInQuadrant = (mapUtils, bestQuadrant, myCord) => {
+  const h = mapUtils.map["height"];
+  const w = mapUtils.map["width"];
+  let goalCord = new Coordinate(Math.floor(w / 4), Math.floor(h / 4));
+
+  // Place cord in center of correct quadrant.
+  if (bestQuadrant == "q2") {
+    goalCord.x += Math.floor(w / 2);
+  } else if (bestQuadrant == "q3") {
+    goalCord.y += Math.floor(h / 2);
+  } else if (bestQuadrant == "q4") {
+    goalCord.x += Math.floor(w / 2);
+    goalCord.y += Math.floor(h / 2);
+  }
+
+  let tType = getTileType(goalCord, mapUtils, BOT_NAME);
+  while (tType !== 3 && tType !== 5) {
+    goalCord.x += 1;
+    tType = getTileType(goalCord, mapUtils, BOT_NAME);
+  }
+  return goalCord;
+};
+
+// Returns a cord in the least inhabited quadrant.
+// Used when there is no power-up
+/*  
+    Q1   |   Q2
+         |
+  ----------------
+         |
+    Q3   |   Q4
+*/
+const getLeastInhabited = (mapUtils, myCord) => {
+  const h = mapUtils.map["height"];
+  const w = mapUtils.map["width"];
+  let qCount = { q1: 0, q2: 0, q3: 0, q4: 0 };
+
+  for (let player of mapUtils.characterInfoMap.values()) {
+    if (player["name"] !== BOT_NAME) {
+      const playerCord = mapUtils.convertPositionToCoordinate(
+        player["position"]
+      );
+
+      // Locate which quadrant player is located in
+      if (playerCord.x < w / 2 && playerCord.y < h / 2) {
+        qCount.q1 += 1;
+      } else if (playerCord.x > w / 2 && playerCord.y < h / 2) {
+        qCount.q2 += 1;
+      } else if (playerCord.x < w / 2 && playerCord.y > h / 2) {
+        qCount.q3 += 1;
+      } else if (playerCord.x > w / 2 && playerCord.y > h / 2) {
+        qCount.q4 += 1;
+      }
+    }
+  }
+
+  let leastVisitors = Infinity;
+  let bestQuadrant = null;
+
+  for (const [k, v] of Object.entries(qCount)) {
+    if (v < leastVisitors) {
+      bestQuadrant = k;
+      leastVisitors = v;
+    }
+  }
+
+  const goal = getTileInQuadrant(mapUtils, bestQuadrant, myCord);
+  console.log("Going towards", bestQuadrant, goal);
+  return goal;
+};
+
 // Returns # of paintable tiles within boom range
 const getPaintableTilesInProx = (mapUtils, myCord) => {
   let closeCords = new Array();
@@ -291,15 +362,14 @@ export function getNextAction(mapUpdateEvent) {
   const myCharacter = mapUtils.getMyCharacterInfo();
   const myCord = mapUtils.getMyCoordinate();
 
-  const goal = closestPowerCord(
+  let goal = closestPowerCord(
     mapUtils.getCoordinatesContainingPowerUps(),
     myCord
   );
 
   if (goal === -1) {
-    // No powerup, stay
-    // Should probably set goal as center of least inhabited quadrant.
-    return Action.Stay;
+    // No powerup, go towards least inhabited quadrant
+    goal = getLeastInhabited(mapUtils, myCord);
   }
 
   const action = aStar(mapUtils, myCord, goal);
@@ -328,7 +398,7 @@ export function onMessage(message) {
       break;
     case MessageType.GameResult:
       // Logs results.
-      message["playerRanks"].forEach((player) => {
+      /* message["playerRanks"].forEach((player) => {
         if (player["playerName"] == BOT_NAME) {
           fs.appendFileSync(
             "logs/astar" + VERSION + ".txt",
@@ -340,7 +410,7 @@ export function onMessage(message) {
               "\n"
           );
         }
-      });
+      }); */
       break;
   }
 }
