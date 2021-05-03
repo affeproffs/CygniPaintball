@@ -4,7 +4,7 @@ import { getPlayersInProximity, getTileType } from "../ownUtils/ownUtils.js";
 import fs from "fs";
 
 export const BOT_NAME = "A⭐ is born";
-const VERSION = "v3++";
+const VERSION = "v3+++";
 let hasStayed = false;
 
 const areCordsSame = (c1, c2) => {
@@ -216,7 +216,7 @@ const aStar = (mapUtils, start, goal) => {
   return selectAction(mapUtils, nodeDetails, goal, start);
 };
 
-const getTileInQuadrant = (mapUtils, bestQuadrant, myCord) => {
+const getTileInQuadrant = (mapUtils, bestQuadrant) => {
   const h = mapUtils.map["height"];
   const w = mapUtils.map["width"];
   let goalCord = new Coordinate(Math.floor(w / 4), Math.floor(h / 4));
@@ -235,6 +235,13 @@ const getTileInQuadrant = (mapUtils, bestQuadrant, myCord) => {
   while (tType !== 3 && tType !== 5) {
     goalCord.x += 1;
     tType = getTileType(goalCord, mapUtils, BOT_NAME);
+
+    // Choose another quadrant if no available tiles.
+    if (mapUtils.isCoordinateOutOfBounds(goalCord)) {
+      const quadrants = ["q1", "q2", "q3", "q4"];
+      const randomIndex = Math.floor(Math.random() * quadrants.length);
+      return getTileInQuadrant(mapUtils, quadrants[randomIndex]);
+    }
   }
   return goalCord;
 };
@@ -282,8 +289,7 @@ const getLeastInhabited = (mapUtils, myCord) => {
     }
   }
 
-  const goal = getTileInQuadrant(mapUtils, bestQuadrant, myCord);
-  console.log("Going towards", bestQuadrant, goal);
+  const goal = getTileInQuadrant(mapUtils, bestQuadrant);
   return goal;
 };
 
