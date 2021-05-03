@@ -4,7 +4,7 @@ import { getPlayersInProximity, getTileType } from "../ownUtils/ownUtils.js";
 import fs from "fs";
 
 export const BOT_NAME = "A⭐ is born";
-const VERSION = "v3+";
+const VERSION = "v3++";
 let hasStayed = false;
 
 const areCordsSame = (c1, c2) => {
@@ -328,7 +328,7 @@ export function onMessage(message) {
       break;
     case MessageType.GameResult:
       // Logs results.
-      /* message["playerRanks"].forEach((player) => {
+      message["playerRanks"].forEach((player) => {
         if (player["playerName"] == BOT_NAME) {
           fs.appendFileSync(
             "logs/astar" + VERSION + ".txt",
@@ -340,7 +340,7 @@ export function onMessage(message) {
               "\n"
           );
         }
-      }); */
+      });
       break;
   }
 }
