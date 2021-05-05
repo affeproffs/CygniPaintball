@@ -150,8 +150,6 @@ const aStarUtil = (mapUtils, co, goal, r, c) => {
         nodeDetails[co.y][co.x].parentR = r;
         nodeDetails[co.y][co.x].parentC = c;
       } else if (nodeDetails[co.y][co.x].f == fNew) {
-        // go .. <= .. + allowance to allow for some longer paths
-        //  for more painted tiles
 
         // Additional path of same cost but more colorable tiles
         if (colorableNew > nodeDetails[co.y][co.x].colorable) {
